@@ -9,66 +9,12 @@ Created on Tue Jul 10 01:06:32 2018
 import socket 
 import sys
 import os 
-import datetime
 
-class communicator:
-    def __init__(self , sockLocal):
-        self.sockLocal = sockLocal 
-        self.packetLen = 0
-        self.clearMessage = ""
-        self.encodedMessage = ""
-        self.encoder = "utf-8"
-        
-    def calculateLenght(self , message):
-        self.encodedMessage = message.encode(self.encoder)
-        self.packetLen = len(self.encodedMessage)
-        return self.packetLen 
-    
-    
-    def send(self , mess ):
-        #print("DEBUG -> Message to send = " , mess)
-        
-        self.sockLocal.send(str(self.calculateLenght(mess)).encode(self.encoder))
-        #print("DEBUG -> Packet Lenght = " , self.packetLen)
-        confirm = self.sockLocal.recv(16).decode(self.encoder)
-        #print("DEBUG -> Confirmation received -> " , confirm)
-        self.sockLocal.send(mess.encode(self.encoder))
-    
-    def receive(self):
-        #print("DEBUG ->  Preparing to receive a packet ")
-        lenght = int(self.sockLocal.recv(16).decode(self.encoder))
-        #print("DEBUG -> Packet lenght = " , lenght)
-        self.sockLocal.send("ACK".encode(self.encoder))
-        #print("DEBUG -> ACK sended ")
-        recv = self.sockLocal.recv(lenght).decode(self.encoder)
-        #print("DEBUG -> message Received = " , recv )
-        return recv 
-    
-    def sendBytes(self , byte):
-        #self.sockLocal.send(str(len(byte)).encode(self.encoder))
-        #print("DEBUG -> len of file = " , len(byte))
-        #self.sockLocal.recv(16).decode(self.encoder)
-        #print("DEBUG -> ACK received ")
-        self.sockLocal.send(byte)
-        #print("DEBUG -> BYTES SENDED ")
-    
-    def receiveBytes(self , pathToStore):
-        #lenght = int(self.sockLocal.recv(16).decode(self.encoder))
-        #print("DEBUG -> Bytes to receive = " , lenght)
-        #self.sockLocal.send("ACK".encode(self.encoder))
-        #print("DEBUG -> ACK SENDED")
-        f = open(pathToStore , "wb")
-        temp = b''
-        while( True):
-            temp = self.sockLocal.recv(1024)
-            f.write(temp)
-            if (len(temp) < 1024):
-                break
-        f.close()
-   
-        #recv = self.sockLocal.recv(lenght)
-        #print("DEBUG -> TOTAL BYTES RECEIVED  = " , len(data))
-    
+
+sys.path.append("dependencies/")
+import communicator
+
+
     
 class clientServerExchanger:
     def __init__(self , port = 4242 , ip="0.0.0.0"):
@@ -93,7 +39,7 @@ class clientServerExchanger:
     def acceptConnection(self):
         self.client_socket , addr =  self.socket.accept()
         print("[+] We got a new connection from "  , addr[0] , " on port " , addr[1])
-        self.communicator = communicator(self.client_socket)
+        self.communicator = communicator.communicator(self.client_socket)
     
         self.mainHandler()
     

